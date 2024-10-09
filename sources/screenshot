@@ -1,0 +1,62 @@
+#!/bin/bash
+
+# [GPL3 License] Copyright (c) 2024 Michel Novus
+
+#** Envoltorio de scrot para capturar un área determinada de la pantalla
+# * mediante el cursor, permitiendo asignar un nombre a la imagen.
+# * Este script lo creé para ejecutarlo mediante una tecla del teclado en
+# * el WM Openbox.
+# *
+# * Definí una nueva entrada en XDG user directories:
+# *     XDG_SCREENSHOT_DIR - Directorio donde se guardarán las capturas
+# * Si no existe, busca una variable de entorno SCREENSHOT_DIR.
+# * Si tampoco existe usa el valor predeterminado de XDG_PICTURES_DIR.
+
+set -e
+
+if [[ $(xdg-user-dir SCREENSHOT) != "$HOME" ]]; then
+    screenshot_dir="$(xdg-user-dir SCREENSHOT)"
+elif [[ -n $SCREENSHOT_DIR ]]; then
+    screenshot_dir=$SCREENSHOT_DIR
+elif [[ -n $(xdg-user-dir PICTURES) ]]; then
+    screenshot_dir=$(xdg-user-dir PICTURES)
+else
+    ERROR_MSG='No encuentro un sitio donde guardar la captura de pantalla'
+    >&2 echo "$ERROR_MSG"
+    notify-send -u low -t 5000 'screenshot - scrot' "$ERROR_MSG"
+    exit 1
+fi
+
+if [[ ! -d $screenshot_dir ]]; then
+    mkdir -p "$screenshot_dir"
+fi
+
+default_screenshot_name="$(date '+%Y%m%dT%H%M%S')"
+
+screenshot_file_tmp="/tmp/${default_screenshot_name}.png"
+default_umask=$(umask)
+umask 077
+set +e
+scrot -s "$screenshot_file_tmp" 2>/dev/null
+if [[ $? != 0 ]]; then
+    exit 0
+fi
+
+file_name=$(zenity --title='screenshot - scrot' --text='Especifica un nombre' \
+    --confirm-overwrite \
+    --entry --entry-text="$default_screenshot_name")
+if [[ $? != 0 ]]; then
+    rm "$screenshot_file_tmp"
+    exit 0
+fi
+set -e
+
+if [[ $file_name != *.png ]]; then
+    file_name="${file_name}.png"
+fi
+screenshot_file="$screenshot_dir/$file_name"
+umask ${default_umask}
+cp --no-preserve=mode "$screenshot_file_tmp" "$screenshot_file"
+rm "$screenshot_file_tmp"
+
+notify-send -u low -t 2500 'imagen guardada en' "$screenshot_file"
