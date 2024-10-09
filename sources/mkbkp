@@ -1,0 +1,231 @@
+#!/bin/bash
+
+# [GPL3 License] Copyright (c) 2024 Michel Novus
+# Script Bash que automatiza la generación de copias de respaldo primarias.
+
+set -eu
+export PATH=/bin:/usr/bin
+__version__="0.1.0"
+
+# === Parametros de entrada ===
+
+#** Es el directorio donde se guardan los respaldos.
+# * Los subdirectorios tienen la siguiente forma
+# * BACKUP_DIR            <-- directorio base
+# *   |
+# *   +-- respaldos_abc/  <-- define un espacio de nombre para un backup
+# *   |     +-- cached/   <-- cambios incrementales sobre latest/
+# *   |     +-- latest/   <-- último respaldo realizado
+# *   |     +-- source    <-- Qué se está respaldando?
+# *   |     +-- filter    <-- Qué debe incluirse o no en el respaldo?
+# *   |
+# *   +-- respaldos_def/
+# *   |     +-- cached/
+# *   |     +-- latest/
+# *   |     +-- source
+# *   |     +-- filter
+# *   ...
+# *   +-- respaldos_xyz/
+# *         +-- cached/
+# *         +-- latest/
+# *         +-- source
+# *         +-- filter
+# *
+# * donde cada uno de ellos contiene el archivo `source` que dice de donde
+# * se obtienen los archivos a respaldar, `filter` indica que archivos se
+# * ignoran o incluyen, `latest/` contiene los archivos respaldados a la
+# * última vez que se respadaron y `cached/` contiene modificaciones o
+# * eliminaciones que se realizaron sobre el contenido en `latest/`.
+# * Los nombres de los subdirectorios de BACKUP_DIR son arbitrarios.
+# * 
+# * `source` contiene la ruta absoluta de lo que debe respaldarce, por 
+# * ejemplo: "/home/usuario" o "/" o "/mnt/disk/secret" y el archivo es
+# * de solo lectura.
+# * 
+# * `filter` contiene las reglas de filtrado de rsync, ver sección 
+# * `FILTER RULES IN DEPTH` del manual.
+BACKUP_DIR="${2:-""}"
+COMMAND="${1:-"help"}"
+
+
+# === Funciones ===
+
+#** Muestra el mensage de ayuda.
+function show_help {
+    echo 'Script para crear copias de respaldo incrementales.'
+    echo "Uso: $(basename $0) COMANDO RUTA"
+    echo
+    echo 'El parámetro `RUTA` es la ruta absoluta donde se guardan las copias'
+    echo 'de respaldo. El directorio ya debe existir y contiene subdirectorios'
+    echo 'generados mediante el comando `create`.'
+    echo
+    echo 'Comandos:' 
+    echo '  run         Ejecuta todas las entradas de copias de respaldo' 
+    echo '  create      Crea una nueva entrada de copia de seguridad'
+    echo '  help        Muestra esta ayuda'
+    echo
+    echo 'Más en el repositorio: "https://github.com/michelnovus/scripts"'
+    echo "  mkbkp (v$__version__)"
+}
+
+#** Genera una nueva entrada en el directorio de respaldo.
+# * Argumentos:
+# *     - nombre de la entrada, sin espacios
+# *     - ruta absoluta al objetivo a respaldar
+# * Retorna 1 si el nombre ya existe.
+function create_new {
+    name=$1
+    target=$2
+
+    dir_path="$BACKUP_DIR/$name"
+    if [[ -d $dir_path ]]; then
+        >&2 echo 'El nombre ya está en uso'
+        return 1
+    fi
+    if [[ $target != /* ]]; then
+        >&2 echo 'Se necesita la ruta absoluta'
+        return 1
+    fi
+    mkdir "$dir_path"
+    echo "$target" > "$dir_path/source"
+    chmod 444 "$dir_path/source"
+    touch "$dir_path/filter"
+    chmod 754 "$dir_path/filter"
+    mkdir "$dir_path/latest"
+    mkdir "$dir_path/cached"
+}
+
+#** Ejecuta la copia de respaldo.
+# * Argumentos:
+# *     - filter_file
+# *     - backup_dir
+# *     - source_dir
+# *     - dest_dir
+function rsync_backup {
+    filter_file=$1
+    backup_dir=$2
+    source_dir=$3
+    dest_dir=$4
+
+    rsync --archive --acls --xattrs --hard-links --delete \
+        --backup --backup-dir=$backup_dir \
+        --filter="merge $filter_file" \
+        --info=progress2 --human-readable \
+        "$source_dir" \
+        "$dest_dir"
+}
+
+function generate_date {
+    date --utc '+%Y%m%dT%H%M%S' 
+}
+
+#** Elimina el directorio si esta vacío o solo contiene directorios.
+# * Necesita como argumento el directorio que se va a borrar.
+function delete_empty_dir {
+    directory=$1
+    if [[ $(find "$directory" -type f | wc -l) == 0 ]]; then
+    rm -rf "$directory"
+fi
+
+}
+
+#** Elimina las barras (/) repetidas y la última de ellas, excepto si es /.
+function trim_slashes {
+    value=$1
+    trimed=$(echo $value | tr -s '/')
+    if [[ $trimed != '/' ]]; then
+        trimed=${trimed%'/'}
+    fi
+    echo -n $trimed
+}
+
+
+# === Comprobación ===
+
+#** Se ejecuta como superusuario?
+if [[ $(id -u) != 0 ]]; then
+    echo 'Debes ser superusuario para ejecutar el script.'
+    exit 1
+fi
+
+#** Argumentos de la linea de comandos
+case $COMMAND in
+    ('run' | 'create')
+        ;;
+    ('help' | '--help' | '-h')
+        show_help
+        exit 0
+        ;;
+    (*)
+        show_help
+        exit 1
+        ;;
+esac
+if [[ ${#@} != 2 ]]; then
+    show_help
+    exit 1
+fi
+BACKUP_DIR=$(trim_slashes $BACKUP_DIR)
+if [[ $BACKUP_DIR != /* ]]; then
+    echo 'La ruta debe ser absoluta'
+    exit 1
+elif [[ -f $BACKUP_DIR ]]; then
+    echo 'Se debe indicar un directorio, no un fichero'
+    exit 1
+elif [[ $COMMAND != 'create' ]]; then
+    #** BACKUP_DIR existe?
+    if [[ ! -d $BACKUP_DIR ]]; then
+        echo -n "El directorio no existe, "
+        echo "ejecuta el comando \`$(basename $0) create $BACKUP_DIR\`."
+        exit 1
+    fi
+    #** BACKUP_DIR tiene los permisos correctos?
+    if [[ $(stat -c '%a' "$BACKUP_DIR") != 700 ]]; then
+        chmod 700 "$BACKUP_DIR"
+    fi
+    #** El propietario es root?
+    if [[ $(stat -c '%u' "$BACKUP_DIR") != 0 ]]; then
+        chown root:root "$BACKUP_DIR"
+    fi
+fi
+
+
+# === Ejecución ===
+
+case $COMMAND in
+    ('run')
+        dir_queue=$(ls "$BACKUP_DIR")
+        current_date=$(generate_date)
+
+        IFS=$'\n'
+        for snap_dir in $dir_queue; do
+            source=$(cat "$BACKUP_DIR/$snap_dir/source")
+            filter_file="$BACKUP_DIR/$snap_dir/filter"
+            cached_dir="$BACKUP_DIR/$snap_dir/cached/$current_date"
+            rsync_backup "$filter_file" "$cached_dir" \
+                "$source" "$BACKUP_DIR/$snap_dir/latest/"
+            if [[ -d $cached_dir ]]; then
+                delete_empty_dir "$cached_dir"
+            fi
+        done
+        unset IFS
+    ;;
+    ('create')
+        if [[ ! -d $BACKUP_DIR ]]; then
+            mkdir $BACKUP_DIR
+            chmod 700 $BACKUP_DIR
+        fi
+        new_entry_name=''
+        path_to_backup=''
+        echo 'Creando nueva entrada'
+        read -p 'nombre: ' new_entry_name
+        new_entry_name=$(echo -n $new_entry_name | tr -s ' ' '-')
+        read -p 'target: ' path_to_backup
+        path_to_backup=$(trim_slashes $path_to_backup)
+        create_new $new_entry_name $path_to_backup
+        exit $?
+    ;;
+esac
+
+
+
