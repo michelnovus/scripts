@@ -3,7 +3,7 @@ from pathlib import Path
 from sys import stderr
 from os.path import splitext
 
-WATERMARK_SUFFIX = "-watermark"
+from defines import WATERMARK_SUFFIX
 
 
 def main() -> None:
