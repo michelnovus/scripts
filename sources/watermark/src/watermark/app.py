@@ -1,9 +1,14 @@
-from argparser import parse_args
 from pathlib import Path
 from sys import stderr
 from os.path import splitext
 
-from defines import WATERMARK_SUFFIX
+from PIL.Image import Image
+
+from .argparser import parse_args
+from . import generator
+
+
+WATERMARK_SUFFIX = "-watermark"
 
 
 def main() -> None:
@@ -29,3 +34,25 @@ def main() -> None:
                 f"{dst}",
                 file=stderr,
             )
+
+    for src, dst in files:
+        match args.POSITION:
+            case "ALL":
+                image = generator.generate_everywhere(
+                    src,
+                    args.text,
+                    size=args.SIZE,
+                    color=args.COLOR,
+                    opacity=args.OPACITY,
+                    rotation=args.ROTATION,
+                )
+                action(image, dst, args.NOT_SAVE, args.SHOW)
+            case _:
+                raise NotImplementedError
+
+
+def action(image: Image, output: Path, notsave: bool, show: bool) -> None:
+    if not notsave:
+        image.save(output)
+    if show:
+        image.show()

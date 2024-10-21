@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools>=66.1.1"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "watermark"
+version = "0.0.1"
+requires-python = ">=3.11"
+authors = [{ name = "Michel Novus", email = "michelnovus@gmail.com" }]
+description = "Herramienta para estampar una marca de agua en imágenes."
+readme = { file = "README.md", content-type = "text/markdown" }
+license = { text = "MIT License" }
+keywords = ["watermark", "stamp", "image-processing"]
+classifiers = [
+    "License :: OSI Approved :: MIT License",
+    "Topic :: Multimedia :: Graphics",
+    "Topic :: Utilities",
+]
+dependencies = ["pillow>=11.0.0"]
+
+[project.urls]
+Repository = "https://github.com/michelnovus/scripts.git"
+Documentation = "https://github.com/michelnovus/scripts/watermark/README.md"

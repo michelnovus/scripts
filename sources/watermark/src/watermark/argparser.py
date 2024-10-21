@@ -2,18 +2,20 @@ from argparse import ArgumentParser, Namespace
 from sys import argv
 from os import getcwd
 from pathlib import Path
+from re import match as regex_match
 
-from defines import Position, Color
+# POSITION_VALUES = ("ALL", "CENTER", "N", "S", "E", "W", "NE", "SE", "SW", "NW")
+POSITION_VALUES = ("ALL",)
 
 
 class _Default(object):
     """Default values of parse_args()."""
 
     OUT_DIR = getcwd()
-    TEXT_SIZE = 40
-    POSITION = Position.CENTER
-    COLOR = Color("#212121")
-    OPACITY = 0
+    TEXT_SIZE = 50
+    POSITION = POSITION_VALUES[0]
+    COLOR = (255, 255, 255)
+    OPACITY = 127
     ROTATION = 30
 
 
@@ -50,29 +52,29 @@ def parse_args() -> Namespace:
     )
     parser.add_argument(
         "--position",
-        help=f"watermark position values: {{{', '.join((p.name for p in Position))}}} [default: {_Default.POSITION.name}]",
+        help=f"watermark position values: {{{', '.join(POSITION_VALUES)}}} [default: {_Default.POSITION}]",
         dest="POSITION",
-        type=_position_enum_parser,
+        type=_position_parser,
         default=_Default.POSITION,
     )
     parser.add_argument(
         "--color",
         dest="COLOR",
-        help=f"set text color (a hex color value) [default: {_Default.COLOR}]",
-        type=Color,
+        help="set text color (a hex color value) [default: #FFFFFF]",
+        type=_color_parser,
         default=_Default.COLOR,
     )
     parser.add_argument(
         "--opacity",
         dest="OPACITY",
-        help=f"set opacity level (integer >= 0) [default: {_Default.OPACITY}]",
-        type=lambda i: abs(int(i)),
+        help=f"set opacity level (integer between 0 and 100) [default: 50]",
+        type=_opacity_level,
         default=_Default.OPACITY,
     )
     parser.add_argument(
         "--rotation",
         dest="ROTATION",
-        help=f"set rotation angle (integer between 0 and (+/-)90) [default: {_Default.ROTATION}]",
+        help=f"set rotation angle [default: {_Default.ROTATION}]",
         type=lambda i: abs(int(i)),
         default=_Default.ROTATION,
     )
@@ -84,17 +86,43 @@ def parse_args() -> Namespace:
     )
     parser.add_argument(
         "--no-save",
-        dest="NO_SAVE",
+        dest="NOT_SAVE",
         help="do not save a file in output, use it with --show",
         action="store_true",
     )
     return parser.parse_args(argv[1:] if argv[1:] else ["-h"])
 
 
-def _position_enum_parser(pos: str) -> Position:
-    values = [p.name for p in Position]
-    pos = pos.upper()
-    if pos in values:
-        return Position[pos]
+def _opacity_level(level: str) -> int:
+    """Dado un valor de `level` entre 0 y 100 retorna el valor proporcional
+    entre 0 y 255."""
+    try:
+        value = float(level)
+    except:
+        raise ValueError
+    if not (0 <= value <= 100):
+        raise ValueError
+    return int(value * 255 // 100)
+
+
+def _color_parser(color: str) -> tuple[int, int, int]:
+    color_match = regex_match(
+        r"^#?([0-9a-fA-F]{2})([0-9a-fA-F]{2})([0-9a-fA-F]{2})$", color
+    )
+    if color_match is None:
+        raise ValueError
+    else:
+        r, g, b = (
+            color_match.group(1),
+            color_match.group(2),
+            color_match.group(3),
+        )
+        return (int(r, base=16), int(g, base=16), int(b, base=16))
+
+
+def _position_parser(value: str) -> str:
+    value = value.upper()
+    if value in POSITION_VALUES:
+        return value
     else:
         raise ValueError
