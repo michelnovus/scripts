@@ -1,0 +1,15 @@
+[build-system]
+requires = ["setuptools>=66.1.1"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "rebaptizer"
+version = "0.2.0"
+requires-python = ">=3.11"
+authors = [{ name = "Michel Novus", email = "michelnovus@gmail.com" }]
+description = "Rebaptizer es un script para renombrar archivos rapidamente con regex."
+license = { text = "MIT License" }
+dependencies = ["colorama>=0.4.6"]
+
+[project.urls]
+Repository = "https://github.com/michelnovus/scripts.git"
