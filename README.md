@@ -12,6 +12,17 @@ Por ahora el repositorio tiene los siguientes programas:
     que causan los programas del entorno usuario.
 - `screenshot`: Envoltorio del programa scrot para capturar un área de la
     pantalla mediante algún botón del teclado como atajo.
+- `watermark`: Genera y estampa marcas de agua en imágenes.
+
+
+> [!NOTE]
+> Los script escritos en **Python** son paquetes ejecutables, construyelos con
+> el programa `pex` de la sigiente manera:
+>
+> `$ pex --project {paquete/} -e 'paquete' -o paquete.pex`
+> 
+> Más sobre `pex` en https://github.com/pex-tool/pex.
+
 
 #### Licenciamiento:
 
