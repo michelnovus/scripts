@@ -5,7 +5,7 @@ from os.path import splitext
 from PIL.Image import Image
 
 from .argparser import parse_args
-from . import generator
+from .generator import WatermarkGenerator
 
 
 WATERMARK_SUFFIX = "-watermark"
@@ -35,17 +35,18 @@ def main() -> None:
                 file=stderr,
             )
 
+    generator = WatermarkGenerator(
+        args.text,
+        size=args.SIZE,
+        color=args.COLOR,
+        opacity=args.OPACITY,
+        rotation=args.ROTATION,
+    )
+
     for src, dst in files:
         match args.POSITION:
             case "ALL":
-                image = generator.generate_everywhere(
-                    src,
-                    args.text,
-                    size=args.SIZE,
-                    color=args.COLOR,
-                    opacity=args.OPACITY,
-                    rotation=args.ROTATION,
-                )
+                image = generator.generate_everywhere(src)
                 action(image, dst, args.NOT_SAVE, args.SHOW)
             case _:
                 raise NotImplementedError

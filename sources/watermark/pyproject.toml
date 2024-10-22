@@ -21,3 +21,6 @@ dependencies = ["pillow>=11.0.0"]
 [project.urls]
 Repository = "https://github.com/michelnovus/scripts.git"
 Documentation = "https://github.com/michelnovus/scripts/watermark/README.md"
+
+[tool.setuptools.package-data]
+"watermark.fonts" = ["*.ttf"]
