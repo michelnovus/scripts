@@ -1,11 +1,12 @@
 from pathlib import Path
 from sys import stderr
 from os.path import splitext
+import time
 
-from PIL.Image import Image
+from tqdm import tqdm
 
 from .argparser import parse_args
-from .generator import WatermarkGenerator
+from .generator import Watermark
 
 
 WATERMARK_SUFFIX = "-watermark"
@@ -35,25 +36,29 @@ def main() -> None:
                 file=stderr,
             )
 
-    generator = WatermarkGenerator(
+    watermark = Watermark(
         args.text,
+        position=args.POSITION,
         size=args.SIZE,
         color=args.COLOR,
         opacity=args.OPACITY,
         rotation=args.ROTATION,
     )
 
-    for src, dst in files:
-        match args.POSITION:
-            case "ALL":
-                image = generator.generate_everywhere(src)
-                action(image, dst, args.NOT_SAVE, args.SHOW)
-            case _:
-                raise NotImplementedError
+    it = tqdm(files) if len(files) > 1 else files
+    msg = f"{len(files)} files" if len(files) > 1 else f'"{files[0][0]}"'
+    print(f":: Stamping {msg}.", file=stderr)
+    for src_file, dst_file in it:
 
+        # if type(it) == type(list):
+        #     it.set_description(str(src_file.name))  # type: ignore
 
-def action(image: Image, output: Path, notsave: bool, show: bool) -> None:
-    if not notsave:
-        image.save(output)
-    if show:
-        image.show()
+        if args.DRY_RUN:
+            time.sleep(0.33)
+            continue
+
+        image = watermark.generate(src_file)
+        if not args.NOT_SAVE:
+            image.save(dst_file)
+        if args.SHOW:
+            image.show()

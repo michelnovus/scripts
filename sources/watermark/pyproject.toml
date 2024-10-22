@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "watermark"
-version = "0.0.1"
+version = "0.1.0"
 requires-python = ">=3.11"
 authors = [{ name = "Michel Novus", email = "michelnovus@gmail.com" }]
 description = "Herramienta para estampar una marca de agua en imágenes."
@@ -20,7 +20,6 @@ dependencies = ["pillow>=11.0.0"]
 
 [project.urls]
 Repository = "https://github.com/michelnovus/scripts.git"
-Documentation = "https://github.com/michelnovus/scripts/watermark/README.md"
 
 [tool.setuptools.package-data]
 "watermark.fonts" = ["*.ttf"]

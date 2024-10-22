@@ -4,19 +4,59 @@ from os import getcwd
 from pathlib import Path
 from re import match as regex_match
 
-# POSITION_VALUES = ("ALL", "CENTER", "N", "S", "E", "W", "NE", "SE", "SW", "NW")
-POSITION_VALUES = ("ALL",)
+from .generator import Position
 
 
-class _Default(object):
+class _Default:
     """Default values of parse_args()."""
 
-    OUT_DIR = getcwd()
+    OUT_DIR = Path(getcwd())
     TEXT_SIZE = 50
-    POSITION = POSITION_VALUES[0]
+    POSITION = Position.ALL
     COLOR = (255, 255, 255)
     OPACITY = 127
     ROTATION = 30
+
+
+class _Formatter:
+    @staticmethod
+    def file(value: str) -> Path:
+        return Path(value).resolve()
+
+    @staticmethod
+    def positive_integer(value: str) -> int:
+        return abs(int(value))
+
+    @staticmethod
+    def position(value: str) -> Position:
+        return Position[value]
+
+    @staticmethod
+    def color(value: str) -> tuple[int, int, int]:
+        color_match = regex_match(
+            r"^#?([0-9a-fA-F]{2})([0-9a-fA-F]{2})([0-9a-fA-F]{2})$", value
+        )
+        if color_match is None:
+            raise ValueError
+        else:
+            r, g, b = (
+                color_match.group(1),
+                color_match.group(2),
+                color_match.group(3),
+            )
+            return (int(r, base=16), int(g, base=16), int(b, base=16))
+
+    @staticmethod
+    def opacity(value: str) -> int:
+        """Dado un valor de `level` entre 0 y 100 retorna el valor proporcional
+        entre 0 y 255."""
+        try:
+            level = float(value)
+        except:
+            raise ValueError
+        if not (0 <= level <= 100):
+            raise ValueError
+        return int(level * 255 // 100)
 
 
 def parse_args() -> Namespace:
@@ -32,50 +72,50 @@ def parse_args() -> Namespace:
     parser.add_argument(
         "files",
         metavar="file",
-        type=lambda s: Path(s).resolve(),
         nargs="+",
         help="file to be stamped",
+        type=_Formatter.file,
     )
     parser.add_argument(
         "--output",
         dest="DIR",
         help=f"output directory [default: {_Default.OUT_DIR}]",
+        type=_Formatter.file,
         default=_Default.OUT_DIR,
-        type=lambda s: Path(s).resolve(),
     )
     parser.add_argument(
         "--size",
         dest="SIZE",
         help=f"set text size (integer >= 0) [default: {_Default.TEXT_SIZE}]",
-        type=lambda i: abs(int(i)),
+        type=_Formatter.positive_integer,
         default=_Default.TEXT_SIZE,
     )
     parser.add_argument(
         "--position",
-        help=f"watermark position values: {{{', '.join(POSITION_VALUES)}}} [default: {_Default.POSITION}]",
+        help=f"watermark position values: {{{', '.join([pos.name for pos in Position])}}} [default: {_Default.POSITION}]",
         dest="POSITION",
-        type=_position_parser,
+        type=_Formatter.position,
         default=_Default.POSITION,
     )
     parser.add_argument(
         "--color",
         dest="COLOR",
         help="set text color (a hex color value) [default: #FFFFFF]",
-        type=_color_parser,
+        type=_Formatter.color,
         default=_Default.COLOR,
     )
     parser.add_argument(
         "--opacity",
         dest="OPACITY",
         help=f"set opacity level (integer between 0 and 100) [default: 50]",
-        type=_opacity_level,
+        type=_Formatter.opacity,
         default=_Default.OPACITY,
     )
     parser.add_argument(
         "--rotation",
         dest="ROTATION",
         help=f"set rotation angle [default: {_Default.ROTATION}]",
-        type=lambda i: abs(int(i)),
+        type=_Formatter.positive_integer,
         default=_Default.ROTATION,
     )
     parser.add_argument(
@@ -90,39 +130,10 @@ def parse_args() -> Namespace:
         help="do not save a file in output, use it with --show",
         action="store_true",
     )
-    return parser.parse_args(argv[1:] if argv[1:] else ["-h"])
-
-
-def _opacity_level(level: str) -> int:
-    """Dado un valor de `level` entre 0 y 100 retorna el valor proporcional
-    entre 0 y 255."""
-    try:
-        value = float(level)
-    except:
-        raise ValueError
-    if not (0 <= value <= 100):
-        raise ValueError
-    return int(value * 255 // 100)
-
-
-def _color_parser(color: str) -> tuple[int, int, int]:
-    color_match = regex_match(
-        r"^#?([0-9a-fA-F]{2})([0-9a-fA-F]{2})([0-9a-fA-F]{2})$", color
+    parser.add_argument(
+        "--dry-run",
+        dest="DRY_RUN",
+        help="no execute watermark generation",
+        action="store_true",
     )
-    if color_match is None:
-        raise ValueError
-    else:
-        r, g, b = (
-            color_match.group(1),
-            color_match.group(2),
-            color_match.group(3),
-        )
-        return (int(r, base=16), int(g, base=16), int(b, base=16))
-
-
-def _position_parser(value: str) -> str:
-    value = value.upper()
-    if value in POSITION_VALUES:
-        return value
-    else:
-        raise ValueError
+    return parser.parse_args(argv[1:] if argv[1:] else ["-h"])

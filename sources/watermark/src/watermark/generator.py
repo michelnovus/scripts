@@ -2,23 +2,32 @@ from math import sqrt, ceil
 from io import BytesIO
 from pathlib import Path
 from importlib import resources
+from enum import Enum
 
 from PIL import Image, ImageDraw, ImageFont
 
 
-class WatermarkGenerator(object):
+Position = Enum(
+    "Position",
+    ("ALL",),  # , "CENTER", "N", "S", "E", "W", "NE", "SE", "SW", "NW")
+)
+
+
+# TODO: Implementar diferentes posiciones en el generador Watermark.
+class Watermark:
     def __init__(
         self,
         text: str,
+        position: Position,
         font: str = "JetBrainsMono",
         size: int = 50,
-        xpad: int = 100,
-        ypad: int = 80,
+        padding: tuple[int, int] = (80, 100),
         color: tuple[int, int, int] = (200, 200, 200),
         opacity: int = 127,
         rotation: int = 30,
     ) -> None:
         self.text = text.strip()
+        self.position = position
         self.font = ImageFont.truetype(
             BytesIO(
                 resources.files("watermark.fonts")
@@ -27,10 +36,16 @@ class WatermarkGenerator(object):
             ),
             size,
         )
-        self.xpad = xpad
-        self.ypad = ypad
+        self.xpad, self.ypad = padding
         self.color = (*color, opacity)
         self.rotation = rotation
+
+    def generate(self, image: Path | BytesIO) -> Image.Image:
+        match self.position:
+            case Position.ALL:
+                return self._generate_everywhere(image)
+            case _:
+                raise NotImplementedError
 
     def _text_size(self) -> tuple[int, int]:
         """Calcula y devuelve el ancho y el alto del texto según la fuente."""
@@ -42,7 +57,7 @@ class WatermarkGenerator(object):
         """Calcula el punto central del cuadrilátero definido en P(0,0) y P_size(x,y)."""
         return (size[0] // 2, size[1] // 2)
 
-    def generate_everywhere(self, image: Path | BytesIO) -> Image.Image:
+    def _generate_everywhere(self, image: Path | BytesIO) -> Image.Image:
         with Image.open(image).convert("RGBA") as img:
             square_width = ceil(sqrt(img.width**2 + img.height**2))
             square_img = Image.new(
