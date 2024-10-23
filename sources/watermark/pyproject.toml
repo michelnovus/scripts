@@ -16,7 +16,10 @@ classifiers = [
     "Topic :: Multimedia :: Graphics",
     "Topic :: Utilities",
 ]
-dependencies = ["pillow>=11.0.0"]
+dependencies = [
+    "pillow>=11.0.0",
+    "tqdm>=4.66.5"
+]
 
 [project.urls]
 Repository = "https://github.com/michelnovus/scripts.git"
